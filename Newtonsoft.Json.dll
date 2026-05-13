@@ -1,0 +1,43 @@
+@echo off
+setlocal
+
+REM ===========================================================================
+REM  KwemaAlarmPlugin - Double-click installer launcher
+REM
+REM  This wrapper:
+REM    1. Detects whether the current session has administrator privileges.
+REM    2. If not, re-launches itself elevated via UAC (Start-Process -Verb RunAs).
+REM    3. Runs Install-KwemaPlugin.ps1 with execution policy bypass for this
+REM       single invocation only (does not change system policy).
+REM ===========================================================================
+
+REM Self-elevate to administrator if not already running elevated.
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo Requesting administrator privileges...
+    powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
+    exit /b
+)
+
+REM Now we are elevated. Anchor working directory to this script's folder so
+REM the PowerShell installer's $PSScriptRoot resolves to the right location.
+cd /d "%~dp0"
+
+REM Pass -SourceDir explicitly: %~dp0 is the .bat folder (with trailing
+REM backslash). The .ps1 normalizes the trailing backslash. Passing it
+REM explicitly avoids relying on $PSScriptRoot, which can be empty in
+REM some PowerShell invocation paths.
+powershell -ExecutionPolicy Bypass -NoProfile -File "%~dp0Install-KwemaPlugin.ps1" -SourceDir "%~dp0."
+set PS_EXIT=%errorlevel%
+
+echo.
+if %PS_EXIT% equ 0 (
+    echo Installation finished successfully.
+) else (
+    echo Installer exited with code %PS_EXIT%.
+)
+echo.
+echo Press any key to close this window...
+pause >nul
+endlocal
+exit /b %PS_EXIT%
